@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from "react";
 import KeyEncoder from 'key-encoder';
-import { encode, decode } from 'js-base64';
 import {Base64} from 'js-base64';
-
 
 interface WalletInstance {
   user: {
@@ -17,17 +15,33 @@ const wallet: WalletInstance = {
 }
 
 const keyEncoder = new KeyEncoder('secp256k1');
-let rawPrivateKey = wallet.user.id.toString();
-let rawPublicKey = rawPrivateKey;
+let rawKey = wallet.user.id.toString();
+
+export async function getStaticProps(context: WalletInstance) {
+  return {
+    props: {
+      user: {
+        id: "userId_73"
+      }
+    }
+  }
+}
+
 
 const Home: React.FC = () => {
   const [encryptedData, setEncryptData] = useState("");
   const [publicKey, setPublicKey] = useState("");
   const [privateKey, setPrivateKey] = useState("");
-
-  const generateKeys = (e: React.MouseEvent<HTMLButtonElement>) => {
-    const pemPublicKey = keyEncoder.encodePublic(rawPublicKey, 'raw', 'pem').slice(26, -24).trim();
-    const pemPrivateKey = keyEncoder.encodePrivate(rawPrivateKey, 'raw', 'pem').slice(30, -29).trim();
+  
+  const generateKeys = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    //generate random encrypted string
+    const randCrypt = (await import('crypto-random-string')).default;
+    const randCryptStr = randCrypt({length: 50, type: 'base64'});
+    console.log("random encrypted string: ",randCryptStr)
+    
+    //generate keys with random encrypted string. New ones with every new session
+    const pemPublicKey = keyEncoder.encodePublic(randCryptStr, 'raw', 'pem').slice(26, -24).trim();
+    const pemPrivateKey = keyEncoder.encodePrivate(randCryptStr, 'raw', 'pem').slice(30, -29).trim();
 
     setPublicKey(pemPublicKey);
     setPrivateKey(pemPrivateKey);
@@ -35,16 +49,16 @@ const Home: React.FC = () => {
     console.log("public key: ", pemPublicKey)
     console.log("private key: ", pemPrivateKey)
   }
-
+  
   useEffect(() => {
     sessionStorage.setItem('publicKey', publicKey);
     sessionStorage.setItem('privateKey', privateKey);
   },[publicKey, privateKey])
-
+  
   const encryptInput = (e: React.MouseEvent<HTMLButtonElement>) => {
     let localPublicKey = sessionStorage.getItem('publicKey');
     if(localPublicKey) {
-      const encryptedData = Base64.encode(rawPrivateKey)
+      const encryptedData = Base64.encode(rawKey)
       console.log("encrypted:", encryptedData)
       setEncryptData(encryptedData)
     }
