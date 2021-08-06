@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from "react";
 import KeyEncoder from 'key-encoder';
-import {Base64} from 'js-base64';
+import CryptoJS from 'crypto-js'
 
 interface WalletInstance {
   user: {
@@ -14,8 +13,6 @@ const wallet: WalletInstance = {
   }
 }
 
-const keyEncoder = new KeyEncoder('secp256k1');
-let rawKey = wallet.user.id.toString();
 
 export async function getStaticProps(context: WalletInstance) {
   return {
@@ -27,56 +24,67 @@ export async function getStaticProps(context: WalletInstance) {
   }
 }
 
+let originalText: string
+let ciphertext: string
+let bytes: any
+
+
+const createKeys = async () => {
+  //generate random encrypted string
+  const randCrypt = (await import('crypto-random-string')).default;
+  const randCryptStr = randCrypt({length: 50, type: 'base64'});
+  
+  //generate keys with random encrypted string. New ones with every new session
+  const keyEncoder = new KeyEncoder('secp256k1');
+  const pemPublicKey = keyEncoder.encodePublic(randCryptStr, 'raw', 'pem').slice(26, -24).trim();
+  const pemPrivateKey = keyEncoder.encodePrivate(randCryptStr, 'raw', 'pem').slice(30, -29).trim();
+  
+  sessionStorage.setItem('publicKey', pemPublicKey);
+  sessionStorage.setItem('privateKey', pemPrivateKey);
+
+  console.log("public key: ", pemPublicKey)
+  console.log("private key: ", pemPrivateKey)
+}
+
+
+const encryptData = () => {
+  ciphertext = CryptoJS.AES.encrypt('rand_str_2_encode', 'secret key 123').toString();
+  bytes  = CryptoJS.AES.decrypt(ciphertext, 'secret key 123');
+  console.log("encrepted text: ", ciphertext)
+}
+
+const decryptData = () => {
+  originalText = bytes.toString(CryptoJS.enc.Utf8);
+  console.log('decrepted text: ', originalText)
+}
+
+
 
 const Home: React.FC = () => {
-  const [encryptedData, setEncryptData] = useState("");
-  const [publicKey, setPublicKey] = useState("");
-  const [privateKey, setPrivateKey] = useState("");
-  
-  const generateKeys = async (e: React.MouseEvent<HTMLButtonElement>) => {
-    //generate random encrypted string
-    const randCrypt = (await import('crypto-random-string')).default;
-    const randCryptStr = randCrypt({length: 50, type: 'base64'});
-    console.log("random encrypted string: ",randCryptStr)
-    
-    //generate keys with random encrypted string. New ones with every new session
-    const pemPublicKey = keyEncoder.encodePublic(randCryptStr, 'raw', 'pem').slice(26, -24).trim();
-    const pemPrivateKey = keyEncoder.encodePrivate(randCryptStr, 'raw', 'pem').slice(30, -29).trim();
-
-    setPublicKey(pemPublicKey);
-    setPrivateKey(pemPrivateKey);
-
-    console.log("public key: ", pemPublicKey)
-    console.log("private key: ", pemPrivateKey)
+  const generateKeys = (e: React.MouseEvent<HTMLButtonElement>) => {
+    createKeys()
   }
   
-  useEffect(() => {
-    sessionStorage.setItem('publicKey', publicKey);
-    sessionStorage.setItem('privateKey', privateKey);
-  },[publicKey, privateKey])
-  
-  const encryptInput = (e: React.MouseEvent<HTMLButtonElement>) => {
+  const encrypt = (e: React.MouseEvent<HTMLButtonElement>) => {
     let localPublicKey = sessionStorage.getItem('publicKey');
     if(localPublicKey) {
-      const encryptedData = Base64.encode(rawKey)
-      console.log("encrypted:", encryptedData)
-      setEncryptData(encryptedData)
+      encryptData()
     }
   }
-
-  const decryptInput = (e: React.MouseEvent<HTMLButtonElement>) => {
+  
+  const decrypt = (e: React.MouseEvent<HTMLButtonElement>) => {
     let localPrivateKey = sessionStorage.getItem('privateKey');
     if(localPrivateKey) {
-      let decryptedData: string = Base64.decode(encryptedData)
-      console.log("decrypted:", decryptedData)
+      decryptData()
     }
   }
-
+  
   return (
     <div>
       <button onClick={generateKeys}>Generate keys</button><hr />
-      <button onClick={encryptInput}>Encrypt</button><hr />
-      <button onClick={decryptInput}>Decrypt</button>
+      <button onClick={encrypt}>Encrypt</button><hr />
+      <button onClick={decrypt}>Decrypt</button>
+      <hr />
     </div>
   )
 }
